@@ -17,10 +17,14 @@ import android.os.Bundle;
 import android.util.Log;
 
 import com.android.volley.AuthFailureError;
+import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.Request;
 import com.android.volley.Response;
+import com.android.volley.RetryPolicy;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.mapbox.mapboxsdk.annotations.Icon;
 import com.mapbox.mapboxsdk.annotations.IconFactory;
 import com.mapbox.mapboxsdk.annotations.Marker;
@@ -50,7 +54,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final int PERMISSIONS_LOCATION = 0;
 
     private MarkersList markersList ;
-    private List<MarkersList.MarkerData> markers ;
+    private List<MarkersList.MarkerData> listMarkers ;
 
     CameraPosition cameraPosition = new CameraPosition.Builder()
             .target(new LatLng(12.9693, 79.1559)) // set the camera's center position
@@ -188,8 +192,33 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public boolean onMarkerClick(@NonNull Marker marker) {
 
+        int counter = 0 ;
+
         LatLng test = marker.getPosition() ;
         Log.d("testing", "onMarkerClick: " + test );
+
+        for (int i = 0; i < markersList.getMarkers().size(); i++) {
+            if(test == markersList.getMarkers().get(i).getCoordinates())
+                counter++ ;
+        }
+
+            if(counter==1){
+                for (int i = 0; i < markersList.getMarkers().size(); i++) {
+                    if (markersList.getMarkers().get(i).getCoordinates() == test){
+                        videoPlayIntent.putExtra("imageUrl", markersList.getMarkers().get(i).getImageUrl()) ;
+                        videoPlayIntent.putExtra("videoUrl", markersList.getMarkers().get(i).getVideoUrl()) ;
+                        videoPlayIntent = new Intent(this, VideoPlayActivity.class) ;
+                    }
+                }
+            }else {
+
+                /*Show list of markers*/
+                //Cluster handling
+
+            }
+
+        startActivity(videoPlayIntent);
+
         return false;
     }
 
@@ -224,18 +253,37 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             @Override
             public Map<String, String> getHeaders() throws AuthFailureError {
-                Map headers = new HashMap() ;
+                Map<String, String> headers = new HashMap<String, String>() ;
                 headers.put("auth-key", "somethingsomething") ;
                 return headers ;
             }
         };
 
+        int socketTimeout = 30000000;
+        RetryPolicy policy = new DefaultRetryPolicy(socketTimeout, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT);
+        markersRequest.setRetryPolicy(policy);
         AppController.getInstance().addToRequestQueue(markersRequest);
     }
 
     private void handleResponse(String response) {
 
+        Gson markersGson = new Gson() ;
 
+        markersList = markersGson.fromJson(response, MarkersList.class) ;
+
+        for (int i = 0 ; i< markersList.getMarkers().size() ; i++ ){
+            plotMarker(markersList.getMarkers().get(i).getTitle(),
+                    markersList.getMarkers().get(i).getSnippet(),
+                    markersList.getMarkers().get(i).getCoordinates());
+            listMarkers.add(i, markersList.getMarkers().get(i));
+        }
+
+
+
+    }
+
+    public void plotMarker(String title, String snippet, LatLng position){
+        mapboxMap.addMarker(new MarkerOptions().title(title).snippet(snippet).position(position));
     }
 
 }

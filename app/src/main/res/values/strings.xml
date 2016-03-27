@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">DiggingMapBox</string>
+    <string name="access_token_mapbox">pk.eyJ1Ijoiam9yZGlpZTA5IiwiYSI6ImNpajlucnU5ZzAwM2J1aWx4eGswODJ4MTYifQ.tW5nkExjgXjRrg1yHRdB3g</string>
+</resources>

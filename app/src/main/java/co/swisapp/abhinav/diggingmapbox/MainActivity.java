@@ -4,9 +4,7 @@ import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
-import android.os.Handler;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -24,9 +22,6 @@ import com.android.volley.RetryPolicy;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.mapbox.mapboxsdk.annotations.Icon;
-import com.mapbox.mapboxsdk.annotations.IconFactory;
 import com.mapbox.mapboxsdk.annotations.Marker;
 import com.mapbox.mapboxsdk.annotations.MarkerOptions;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
@@ -37,23 +32,24 @@ import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 
-import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback,
-        MapboxMap.OnMarkerClickListener, MapboxMap.OnCameraChangeListener{
+        MapboxMap.OnMarkerClickListener, MapboxMap.OnCameraChangeListener, AsyncFetcher{
 
     private MapView mapView = null ;
     private MapboxMap mapboxMap ;
-
+    private MarkersList markersList ;
 
     private Intent videoPlayIntent ;
 
     private static final int PERMISSIONS_LOCATION = 0;
 
-    private MarkersList markersList ;
+    private FetchMarkersAsync fetcher = new FetchMarkersAsync() ;
+
+
     private List<MarkersList.MarkerData> listMarkers ;
 
     CameraPosition cameraPosition = new CameraPosition.Builder()
@@ -68,7 +64,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        fetchData(new LatLng(12.9693, 79.1559));
+
+        fetcher.execute(new LatLng(12.9693, 79.1559));
+
         mapView = (MapView) findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
 
@@ -142,6 +140,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected void onDestroy() {
         super.onDestroy();
         mapView.onDestroy();
+    }
+
+    @Override
+    public void processFinish(MarkersList response) {
+        markersList = response ;
+        plotMarkers();
     }
 
     @Override
@@ -222,55 +226,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         return false;
     }
 
-    @Override
-    public void onCameraChange(CameraPosition position) {
-        Log.d("Position Testing", "onCameraChange() called with: " + "position = [" + position + "]");
-        fetchData(position.target);
-    }
-
-    private void fetchData(final LatLng centerPosition) {
-
-        String markersUrl = "api.swisapp.co/ ";
-        StringRequest markersRequest = new StringRequest(Request.Method.POST, markersUrl,
-                new Response.Listener<String>() {
-                    @Override
-                    public void onResponse(String response) {
-
-                        handleResponse(response) ;
-                    }
-                }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-
-            }
-        }){
-            @Override
-            protected Map<String, String> getParams() throws AuthFailureError {
-                Map<String, String> params = new HashMap<String, String>() ;
-                params.put("centerPosition", centerPosition.toString()) ;
-                return params;
-            }
-
-            @Override
-            public Map<String, String> getHeaders() throws AuthFailureError {
-                Map<String, String> headers = new HashMap<String, String>() ;
-                headers.put("auth-key", "somethingsomething") ;
-                return headers ;
-            }
-        };
-
-        int socketTimeout = 30000000;
-        RetryPolicy policy = new DefaultRetryPolicy(socketTimeout, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT);
-        markersRequest.setRetryPolicy(policy);
-        AppController.getInstance().addToRequestQueue(markersRequest);
-    }
-
-    private void handleResponse(String response) {
-
-        Gson markersGson = new Gson() ;
-
-        markersList = markersGson.fromJson(response, MarkersList.class) ;
-
+    public void plotMarkers(){
         for (int i = 0 ; i< markersList.getMarkers().size() ; i++ ){
             plotMarker(markersList.getMarkers().get(i).getTitle(),
                     markersList.getMarkers().get(i).getSnippet(),
@@ -278,14 +234,21 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             listMarkers.add(i, markersList.getMarkers().get(i));
         }
 
-
-
     }
+
+    @Override
+    public void onCameraChange(CameraPosition position) {
+        Log.d("Position Testing", "onCameraChange() called with: " + "position = [" + position + "]");
+        fetcher.execute(position.target) ;
+    }
+
 
     public void plotMarker(String title, String snippet, LatLng position){
         mapboxMap.addMarker(new MarkerOptions().title(title).snippet(snippet).position(position));
     }
 
 }
+
+
 
 
